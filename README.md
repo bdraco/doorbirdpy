@@ -1,6 +1,8 @@
 # doorbirdpy
 Python wrapper for the DoorBird LAN API v0.21
 
+[View on PyPI](https://pypi.org/project/DoorBirdPy/)
+
 # Features
 
 [DoorBird API Documentation](https://www.doorbird.com/downloads/api_lan.pdf?rev=0.21)

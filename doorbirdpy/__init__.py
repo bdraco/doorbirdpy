@@ -103,6 +103,21 @@ class DoorBird(object):
         return DoorBirdScheduleEntry.parse_all(data)
 
     """
+    Find the schedule entry that matches the provided sensor and parameter
+    or create a new one that does if none exists.
+    
+    :return: A DoorBirdScheduleEntry
+    """
+    def get_schedule_entry(self, sensor, param=""):
+        entries = self.schedule()
+
+        for entry in entries:
+            if entry.input == sensor and entry.param == param:
+                return entry
+
+        return DoorBirdScheduleEntry(sensor, param)
+
+    """
     Add or replace a schedule entry.
     
     :param entry: A DoorBirdScheduleEntry object to replace on the device

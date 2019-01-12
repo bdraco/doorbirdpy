@@ -1,0 +1,41 @@
+# Verify that dependencies resolve
+install:
+  stage: test
+  image: python
+  script:
+    - pip3 install -r requirements.txt
+
+# PyPI template
+.pypi:
+  stage: deploy
+  image: python
+  before_script:
+    # Install build and distribution tools
+    - python3 -m pip install --user --upgrade setuptools wheel
+    # Build the package
+    - python3 setup.py sdist bdist_wheel
+    # Prepare to upload to PyPI
+    - python3 -m pip install --user --upgrade twine
+  artifacts:
+    paths:
+      - dist/
+      
+# Upload dev builds to TestPyPI
+testpypi:
+  extends: .pypi
+  only:
+    refs:
+      - dev
+  script:
+    # Upload to TestPyPI
+    - python3 -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+
+# Upload master builds to PyPI
+realpypi:
+  extends: .pypi
+  only:
+    refs:
+      - master
+  script:
+    # Upload to PyPI
+    - python3 -m twine upload dist/*

@@ -3,6 +3,7 @@ import httplib2
 import json
 import sys
 from urllib.parse import urlencode
+from urllib.error import HTTPError
 from doorbirdpy.schedule_entry import DoorBirdScheduleEntry, DoorBirdScheduleEntryOutput, DoorBirdScheduleEntrySchedule
 
 
@@ -294,5 +295,15 @@ class DoorBird(object):
     def __request(self, url):
         response, content = self._http.request(url)
         body_json = content.decode(encoding='utf-8')
-        body_data = json.loads(body_json)
-        return body_data
+
+        if response.status == 401:
+            raise HTTPError(url, response.status, 'Doorbird authentication failed.')
+        if response.status != 200:
+            raise HTTPError(url, response.status, 'Doorbird connection error.')
+
+        if body_json:
+            return json.loads(body_json)
+
+        raise HTTPError(url, response.status, 'Failed to parse Doorbird response.')
+
+

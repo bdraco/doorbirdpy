@@ -297,13 +297,13 @@ class DoorBird(object):
         body_json = content.decode(encoding='utf-8')
 
         if response.status == 401:
-            raise HTTPError(url, response.status, 'Doorbird authentication failed.')
+            raise HTTPError(url, response.status, 'Doorbird authentication failed.', None, None)
         if response.status != 200:
-            raise HTTPError(url, response.status, 'Doorbird connection error.')
+            raise HTTPError(url, response.status, 'Doorbird connection error.', None, None)
 
         if body_json:
             return json.loads(body_json)
 
-        raise HTTPError(url, response.status, 'Failed to parse Doorbird response.')
+        raise HTTPError(url, response.status, 'Failed to parse Doorbird response.', None, None)
 
 

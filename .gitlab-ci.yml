@@ -24,8 +24,7 @@ install:
 testpypi:
   extends: .pypi
   only:
-    refs:
-      - dev
+    - dev@klikini/doorbirdpy
   script:
     # Upload to TestPyPI
     - python3 -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*
@@ -34,8 +33,7 @@ testpypi:
 realpypi:
   extends: .pypi
   only:
-    refs:
-      - master
+    - master@klikini/doorbirdpy
   script:
     # Upload to PyPI
     - python3 -m twine upload dist/*

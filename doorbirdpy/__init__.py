@@ -327,9 +327,9 @@ class DoorBird(object):
         if response.status != 200:
             raise HTTPError(url, response.status, 'Doorbird connection error.',
                             None, None)
-
         if body_json:
             return json.loads(body_json)
 
         raise HTTPError(url, response.status,
                         'Failed to parse Doorbird response.', None, None)
+

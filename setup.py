@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name="DoorBirdPy",
-    version="2.0.6",
+    version="2.0.7",
     author="Andy Castille",
     author_email="andy@robiotic.net",
     packages=["doorbirdpy"],

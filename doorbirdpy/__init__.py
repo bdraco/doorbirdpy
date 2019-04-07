@@ -296,19 +296,25 @@ class DoorBird(object):
     :param args: A dictionary of query parameters
     :param port: The port to use (defaults to 80)
     :param auth: Set to False to remove the URL authentication
+    :param protocol: Allow protocol override
     :return: The full URL
     """
 
-    def __url(self, path, args=None, port=80, auth=True, protocol='http', ):
+    def __url(self, path, args=None, port=80, auth=True, protocol='http'):
         query = urlencode(args) if args else ""
 
         if auth:
-            template = "{}://{}@{}:{}{}?{}"
+            template = "{}://{}@{}:{}{}"
             user = ":".join(self._credentials)
-            return template.format(protocol, user, self._ip, port, path, query)
+            url = template.format(protocol, user, self._ip, port, path)
         else:
-            template = "http://{}:{}{}?{}"
-            return template.format(self._ip, port, path, query)
+            template = "{}://{}:{}{}"
+            url = template.format(protocol, self._ip, port, path)
+
+        if query:
+            url = "{}?{}".format(url, query)
+
+        return url
 
     """
     Call a URL on the device.
@@ -332,4 +338,3 @@ class DoorBird(object):
 
         raise HTTPError(url, response.status,
                         'Failed to parse Doorbird response.', None, None)
-

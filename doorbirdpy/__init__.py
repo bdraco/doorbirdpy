@@ -1,11 +1,16 @@
 """Main DoorBirdPy module."""
-import httplib2
+import requests
 import json
 import sys
 from urllib.parse import urlencode
-from urllib.error import HTTPError
-from doorbirdpy.schedule_entry import DoorBirdScheduleEntry, \
-    DoorBirdScheduleEntryOutput, DoorBirdScheduleEntrySchedule
+from requests import Session, request
+from requests.exceptions import HTTPError
+
+from doorbirdpy.schedule_entry import (
+    DoorBirdScheduleEntry,
+    DoorBirdScheduleEntryOutput,
+    DoorBirdScheduleEntrySchedule,
+)
 
 
 class DoorBird(object):
@@ -19,12 +24,10 @@ class DoorBird(object):
     :param password: The password for the provided username
     """
 
-    def __init__(self, ip, username, password):
+    def __init__(self, ip, username, password, http_session: Session = None):
         self._ip = ip
         self._credentials = username, password
-
-        self._http = httplib2.Http()
-        self._http.add_credentials(username, password)
+        self._http = http_session or Session()
 
     """
     Test the connection to the device.
@@ -34,14 +37,14 @@ class DoorBird(object):
     """
 
     def ready(self):
-        url = self.__url("/bha-api/info.cgi", auth=False)
-        response, content = self._http.request(url)
+        url = self.__url("/bha-api/info.cgi", auth=True)
         try:
-            data = self.__request(url)
+            response = self._http.get(url)
+            data = response.json()
             code = data["BHA"]["RETURNCODE"]
-            return int(code) == 1, int(response["status"])
+            return int(code) == 1, int(response.status_code)
         except ValueError:
-            return False, int(response["status"])
+            return False, int(response.status_code)
 
     """
     A multipart JPEG live video stream with the default resolution and
@@ -72,9 +75,9 @@ class DoorBird(object):
     """
 
     def energize_relay(self, relay=1):
-        data = self.__request(self.__url("/bha-api/open-door.cgi", {
-            "r": relay
-        }, auth=False))
+        data = self._get_json(
+            self.__url("/bha-api/open-door.cgi", {"r": relay}, auth=True)
+        )
         return int(data["BHA"]["RETURNCODE"]) == 1
 
     """
@@ -84,7 +87,7 @@ class DoorBird(object):
     """
 
     def turn_light_on(self):
-        data = self.__request(self.__url("/bha-api/light-on.cgi", auth=False))
+        data = self._get_json(self.__url("/bha-api/light-on.cgi", auth=True))
         code = data["BHA"]["RETURNCODE"]
         return int(code) == 1
 
@@ -97,10 +100,7 @@ class DoorBird(object):
     """
 
     def history_image_url(self, index, event):
-        return self.__url("/bha-api/history.cgi", {
-            "index": index,
-            "event": event
-        })
+        return self.__url("/bha-api/history.cgi", {"index": index, "event": event})
 
     """
     Get schedule settings.
@@ -109,7 +109,7 @@ class DoorBird(object):
     """
 
     def schedule(self):
-        data = self.__request(self.__url("/bha-api/schedule.cgi", auth=False))
+        data = self._get_json(self.__url("/bha-api/schedule.cgi", auth=True))
         return DoorBirdScheduleEntry.parse_all(data)
 
     """
@@ -136,12 +136,13 @@ class DoorBird(object):
     """
 
     def change_schedule(self, entry):
-        url = self.__url("/bha-api/schedule.cgi", auth=False)
-        response, content = self._http.request(url, "POST",
-                                               json.dumps(entry.export),
-                                               headers={
-                                                   "Content-Type": "application/json"})
-        return int(response["status"]) == 200, response["status"]
+        url = self.__url("/bha-api/schedule.cgi", auth=True)
+        response = self._http.post(
+            url,
+            body=json.dumps(entry.export),
+            headers={"Content-Type": "application/json"},
+        )
+        return int(response.status_code) == 200, response.status_code
 
     """
     Delete a schedule entry.
@@ -152,13 +153,13 @@ class DoorBird(object):
     """
 
     def delete_schedule(self, event, param=""):
-        url = self.__url("/bha-api/schedule.cgi", {
-            "action": "remove",
-            "input": event,
-            "param": param
-        }, auth=False)
-        response, content = self._http.request(url)
-        return int(response["status"]) == 200
+        url = self.__url(
+            "/bha-api/schedule.cgi",
+            {"action": "remove", "input": event, "param": param},
+            auth=True,
+        )
+        response = self._http.get(url)
+        return int(response.status_code) == 200
 
     """
     The current state of the doorbell.
@@ -167,14 +168,12 @@ class DoorBird(object):
     """
 
     def doorbell_state(self):
-        url = self.__url("/bha-api/monitor.cgi", {
-            "check": "doorbell"
-        }, auth=False)
-        response, content = self._http.request(url)
+        url = self.__url("/bha-api/monitor.cgi", {"check": "doorbell"}, auth=True)
+        response = self._http.get(url)
+        response.raise_for_status()
 
         try:
-            content = content.decode(sys.stdin.encoding)
-            return int(content.split("=")[1]) == 1
+            return int(response.text.split("=")[1]) == 1
         except IndexError:
             return False
 
@@ -185,14 +184,12 @@ class DoorBird(object):
     """
 
     def motion_sensor_state(self):
-        url = self.__url("/bha-api/monitor.cgi", {
-            "check": "motionsensor"
-        }, auth=False)
-        response, content = self._http.request(url)
+        url = self.__url("/bha-api/monitor.cgi", {"check": "motionsensor"}, auth=True)
+        response = self._http.get(url)
+        response.raise_for_status()
 
         try:
-            content = content.decode(sys.stdin.encoding)
-            return int(content.split("=")[1]) == 1
+            return int(response.text.split("=")[1]) == 1
         except IndexError:
             return False
 
@@ -208,8 +205,8 @@ class DoorBird(object):
     """
 
     def info(self):
-        url = self.__url("/bha-api/info.cgi", auth=False)
-        data = self.__request(url)
+        url = self.__url("/bha-api/info.cgi", auth=True)
+        data = self._get_json(url)
         return data["BHA"]["VERSION"][0]
 
     """
@@ -222,7 +219,7 @@ class DoorBird(object):
     """
 
     def favorites(self):
-        return self.__request(self.__url("/bha-api/favorites.cgi", auth=False))
+        return self._get_json(self.__url("/bha-api/favorites.cgi", auth=True))
 
     """
     Add a new saved favorite or change an existing one.
@@ -235,19 +232,13 @@ class DoorBird(object):
     """
 
     def change_favorite(self, fav_type, title, value, fav_id=None):
-        args = {
-            "action": "save",
-            "type": fav_type,
-            "title": title,
-            "value": value
-        }
+        args = {"action": "save", "type": fav_type, "title": title, "value": value}
 
         if fav_id:
             args["id"] = int(fav_id)
 
-        url = self.__url("/bha-api/favorites.cgi", args, auth=False)
-        response, content = self._http.request(url)
-        return int(response["status"]) == 200
+        response = self._http.get(self.__url("/bha-api/favorites.cgi", args, auth=True))
+        return int(response.status_code) == 200
 
     """
     Delete a saved favorite.
@@ -258,14 +249,14 @@ class DoorBird(object):
     """
 
     def delete_favorite(self, fav_type, fav_id):
-        url = self.__url("/bha-api/favorites.cgi", {
-            "action": "remove",
-            "type": fav_type,
-            "id": fav_id
-        }, auth=False)
+        url = self.__url(
+            "/bha-api/favorites.cgi",
+            {"action": "remove", "type": fav_type, "id": fav_id},
+            auth=True,
+        )
 
-        response, content = self._http.request(url)
-        return int(response["status"]) == 200
+        response = self._http.get(url)
+        return int(response.status_code) == 200
 
     """
     Live video request over RTSP.
@@ -276,8 +267,9 @@ class DoorBird(object):
 
     @property
     def rtsp_live_video_url(self, http=False):
-        return self.__url("/mpeg/media.amp", port=(8557 if http else 554),
-                          protocol='rtsp')
+        return self.__url(
+            "/mpeg/media.amp", port=(8557 if http else 554), protocol="rtsp"
+        )
 
     """
     The HTML5 viewer for interaction from other platforms.
@@ -300,7 +292,7 @@ class DoorBird(object):
     :return: The full URL
     """
 
-    def __url(self, path, args=None, port=80, auth=True, protocol='http'):
+    def __url(self, path, args=None, port=80, auth=True, protocol="http"):
         query = urlencode(args) if args else ""
 
         if auth:
@@ -317,24 +309,13 @@ class DoorBird(object):
         return url
 
     """
-    Call a URL on the device.
+    Get URL on the device.
     
     :param url: The full URL to the API call
     :return: The JSON-decoded data sent by the device
     """
 
-    def __request(self, url):
-        response, content = self._http.request(url)
-        body_json = content.decode(encoding='utf-8')
-
-        if response.status == 401:
-            raise HTTPError(url, response.status,
-                            'Doorbird authentication failed.', None, None)
-        if response.status != 200:
-            raise HTTPError(url, response.status, 'Doorbird connection error.',
-                            None, None)
-        if body_json:
-            return json.loads(body_json)
-
-        raise HTTPError(url, response.status,
-                        'Failed to parse Doorbird response.', None, None)
+    def _get_json(self, url):
+        response = self._http.get(url)
+        response.raise_for_status()
+        return response.json()

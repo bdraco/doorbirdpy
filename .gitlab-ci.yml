@@ -27,7 +27,7 @@ testpypi:
     - dev@klikini/doorbirdpy
   script:
     # Upload to TestPyPI
-    - python3 -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+    - python3 -m twine upload --repository-url https://test.pypi.org/legacy/ -u __token__ dist/*
 
 # Upload master builds to PyPI
 realpypi:
@@ -36,4 +36,4 @@ realpypi:
     - master@klikini/doorbirdpy
   script:
     # Upload to PyPI
-    - python3 -m twine upload dist/*
+    - python3 -m twine upload -u __token__ dist/*

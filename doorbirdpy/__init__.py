@@ -22,12 +22,20 @@ class DoorBird(object):
     :param ip: The IP address of the unit
     :param username: The username (with sufficient privileges) of the unit
     :param password: The password for the provided username
+    :param secure: set to True to use https instead of http for URLs
+    :param port: override the HTTP port (defaults to 443 if secure = True, otherwise 80)
     """
 
-    def __init__(self, ip, username, password, http_session: Session = None):
+    def __init__(self, ip, username, password, http_session: Session = None, secure=False, port=None):
         self._ip = ip
         self._credentials = username, password
         self._http = http_session or Session()
+        self._secure = secure
+
+        if port:
+            self._port = port
+        else:
+            self._port = 443 if self._secure else 80
 
     """
     Test the connection to the device.
@@ -37,7 +45,7 @@ class DoorBird(object):
     """
 
     def ready(self):
-        url = self.__url("/bha-api/info.cgi", auth=True)
+        url = self._url("/bha-api/info.cgi", auth=True)
         try:
             response = self._http.get(url)
             data = response.json()
@@ -55,7 +63,7 @@ class DoorBird(object):
 
     @property
     def live_video_url(self):
-        return self.__url("/bha-api/video.cgi")
+        return self._url("/bha-api/video.cgi")
 
     """
     A JPEG file with the default resolution and compression as 
@@ -66,7 +74,7 @@ class DoorBird(object):
 
     @property
     def live_image_url(self):
-        return self.__url("/bha-api/image.cgi")
+        return self._url("/bha-api/image.cgi")
 
     """
     Energize a door opener/alarm output/etc relay of the device.
@@ -76,7 +84,7 @@ class DoorBird(object):
 
     def energize_relay(self, relay=1):
         data = self._get_json(
-            self.__url("/bha-api/open-door.cgi", {"r": relay}, auth=True)
+            self._url("/bha-api/open-door.cgi", {"r": relay}, auth=True)
         )
         return int(data["BHA"]["RETURNCODE"]) == 1
 
@@ -87,7 +95,7 @@ class DoorBird(object):
     """
 
     def turn_light_on(self):
-        data = self._get_json(self.__url("/bha-api/light-on.cgi", auth=True))
+        data = self._get_json(self._url("/bha-api/light-on.cgi", auth=True))
         code = data["BHA"]["RETURNCODE"]
         return int(code) == 1
 
@@ -100,7 +108,7 @@ class DoorBird(object):
     """
 
     def history_image_url(self, index, event):
-        return self.__url("/bha-api/history.cgi", {"index": index, "event": event})
+        return self._url("/bha-api/history.cgi", {"index": index, "event": event})
 
     """
     Get schedule settings.
@@ -109,7 +117,7 @@ class DoorBird(object):
     """
 
     def schedule(self):
-        data = self._get_json(self.__url("/bha-api/schedule.cgi", auth=True))
+        data = self._get_json(self._url("/bha-api/schedule.cgi", auth=True))
         return DoorBirdScheduleEntry.parse_all(data)
 
     """
@@ -136,7 +144,7 @@ class DoorBird(object):
     """
 
     def change_schedule(self, entry):
-        url = self.__url("/bha-api/schedule.cgi", auth=True)
+        url = self._url("/bha-api/schedule.cgi", auth=True)
         response = self._http.post(
             url,
             body=json.dumps(entry.export),
@@ -153,7 +161,7 @@ class DoorBird(object):
     """
 
     def delete_schedule(self, event, param=""):
-        url = self.__url(
+        url = self._url(
             "/bha-api/schedule.cgi",
             {"action": "remove", "input": event, "param": param},
             auth=True,
@@ -168,7 +176,7 @@ class DoorBird(object):
     """
 
     def doorbell_state(self):
-        url = self.__url("/bha-api/monitor.cgi", {"check": "doorbell"}, auth=True)
+        url = self._url("/bha-api/monitor.cgi", {"check": "doorbell"}, auth=True)
         response = self._http.get(url)
         response.raise_for_status()
 
@@ -184,7 +192,7 @@ class DoorBird(object):
     """
 
     def motion_sensor_state(self):
-        url = self.__url("/bha-api/monitor.cgi", {"check": "motionsensor"}, auth=True)
+        url = self._url("/bha-api/monitor.cgi", {"check": "motionsensor"}, auth=True)
         response = self._http.get(url)
         response.raise_for_status()
 
@@ -205,7 +213,7 @@ class DoorBird(object):
     """
 
     def info(self):
-        url = self.__url("/bha-api/info.cgi", auth=True)
+        url = self._url("/bha-api/info.cgi", auth=True)
         data = self._get_json(url)
         return data["BHA"]["VERSION"][0]
 
@@ -219,7 +227,7 @@ class DoorBird(object):
     """
 
     def favorites(self):
-        return self._get_json(self.__url("/bha-api/favorites.cgi", auth=True))
+        return self._get_json(self._url("/bha-api/favorites.cgi", auth=True))
 
     """
     Add a new saved favorite or change an existing one.
@@ -237,7 +245,7 @@ class DoorBird(object):
         if fav_id:
             args["id"] = int(fav_id)
 
-        response = self._http.get(self.__url("/bha-api/favorites.cgi", args, auth=True))
+        response = self._http.get(self._url("/bha-api/favorites.cgi", args, auth=True))
         return int(response.status_code) == 200
 
     """
@@ -249,7 +257,7 @@ class DoorBird(object):
     """
 
     def delete_favorite(self, fav_type, fav_id):
-        url = self.__url(
+        url = self._url(
             "/bha-api/favorites.cgi",
             {"action": "remove", "type": fav_type, "id": fav_id},
             auth=True,
@@ -258,18 +266,23 @@ class DoorBird(object):
         response = self._http.get(url)
         return int(response.status_code) == 200
 
-    """
-    Live video request over RTSP.
-    
-    :param http: Set to True to use RTSP over HTTP
-    :return: The URL for the MPEG H.264 live video stream
-    """
+    @property
+    def rtsp_live_video_url(self):
+        """
+        Live video request over RTSP.
+
+        :return: The URL for the MPEG H.264 live video stream
+        """
+        return self._url("/mpeg/media.amp", port=554, protocol="rtsp")
 
     @property
-    def rtsp_live_video_url(self, http=False):
-        return self.__url(
-            "/mpeg/media.amp", port=(8557 if http else 554), protocol="rtsp"
-        )
+    def rtsp_over_http_live_video_url(self):
+        """
+        Live video request using RTSP over HTTP.
+
+        :return: The URL for the MPEG H.264 live video stream
+        """
+        return self._url("/mpeg/media.amp", port=8557, protocol="rtsp")
 
     """
     The HTML5 viewer for interaction from other platforms.
@@ -279,7 +292,7 @@ class DoorBird(object):
 
     @property
     def html5_viewer_url(self):
-        return self.__url("/bha-api/view.html")
+        return self._url("/bha-api/view.html")
 
     """
     Create a URL for accessing the device.
@@ -288,11 +301,17 @@ class DoorBird(object):
     :param args: A dictionary of query parameters
     :param port: The port to use (defaults to 80)
     :param auth: Set to False to remove the URL authentication
-    :param protocol: Allow protocol override
+    :param protocol: Allow protocol override (defaults to "http")
     :return: The full URL
     """
 
-    def __url(self, path, args=None, port=80, auth=True, protocol="http"):
+    def _url(self, path, args=None, port=None, auth=True, protocol=None):
+        if not port:
+            port = self._port
+
+        if not protocol:
+            protocol = "https" if self._secure else "http"
+
         query = urlencode(args) if args else ""
 
         if auth:

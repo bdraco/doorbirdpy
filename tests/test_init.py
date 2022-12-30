@@ -28,6 +28,46 @@ def test_ready(requests_mock):
     assert code == 200
 
 
+def test_http_url():
+    db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
+    url = db._url(
+        path="/test",
+        args=[
+            ("arg1", "value1"),
+            ("arg2", "value2"),
+        ],
+    )
+    assert url == f"http://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:80/test?arg1=value1&arg2=value2"
+
+
+def test_http_url_custom_port():
+    db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS, port=8080)
+    url = db._url("/test")
+    assert url == f"http://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:8080/test"
+
+
+def test_https_url():
+    db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS, secure=True)
+    url = db._url("/test")
+    assert url == f"https://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:443/test"
+
+
+def test_https_url_custom_port():
+    db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS, secure=True, port=8443)
+    url = db._url("/test")
+    assert url == f"https://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:8443/test"
+
+
+def test_rtsp_url():
+    db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
+    assert db.rtsp_live_video_url.startswith(f"rtsp://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:554")
+
+
+def test_rtsp_http_url():
+    db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
+    assert db.rtsp_over_http_live_video_url.startswith(f"rtsp://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:8557")
+
+
 def test_energize_relay(requests_mock):
     requests_mock.register_uri(
         "get",

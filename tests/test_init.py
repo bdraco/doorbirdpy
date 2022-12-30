@@ -173,3 +173,13 @@ def test_info(requests_mock):
         ],
         "WIFI_MAC_ADDR": "1234ABCD",
     }
+
+
+def test_reset(requests_mock):
+    requests_mock.register_uri(
+        "get",
+        URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/restart.cgi")
+    )
+
+    db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
+    assert db.restart() is True

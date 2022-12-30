@@ -248,6 +248,16 @@ class DoorBird(object):
         response = self._http.get(url)
         return int(response.status_code) == 200
 
+    def restart(self):
+        """
+        Restart the device.
+
+        :return: successful, True or False
+        """
+        url = self._url("/bha-api/restart.cgi")
+        response = self._http.get(url)
+        return int(response.status_code) == 200
+
     @property
     def rtsp_live_video_url(self):
         """

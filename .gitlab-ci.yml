@@ -4,6 +4,8 @@ install:
   image: python
   script:
     - pip3 install -r requirements.txt
+    - pip3 install -r requirements_test.txt
+    - python3 -m pytest tests/test_init.py
 
 # PyPI template
 .pypi:

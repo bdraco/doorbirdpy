@@ -1,14 +1,6 @@
 from doorbirdpy import DoorBird
 from doorbirdpy.schedule_entry import DoorBirdScheduleEntry
 
-from requests.exceptions import HTTPError
-from requests.models import Response
-from requests.structures import CaseInsensitiveDict
-
-import pytest
-import requests
-import requests_mock
-
 MOCK_HOST = "127.0.0.1"
 MOCK_USER = "user"
 MOCK_PASS = "pass"

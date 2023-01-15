@@ -8,11 +8,12 @@ URL_TEMPLATE = "http://{}:{}@{}:80{}"
 
 
 def test_ready(requests_mock):
-    requests_mock.register_uri(
-        "get",
-        URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/info.cgi"),
-        text='{"BHA": {"RETURNCODE": "1", "VERSION": [{"FIRMWARE": "000125", "BUILD_NUMBER": "15870439", "WIFI_MAC_ADDR": "1234ABCD", "RELAYS": ["1", "2", "ghchdi@1", "ghchdi@2", "ghchdi@3", "ghdwkh@1", "ghdwkh@2", "ghdwkh@3"], "DEVICE-TYPE": "DoorBird D2101V"}]}}',
-    )
+    with open("info.json") as f:
+        requests_mock.register_uri(
+            "get",
+            URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/info.cgi"),
+            text=f.read(),
+        )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
     ready, code = db.ready()
@@ -83,22 +84,24 @@ def test_turn_light_on(requests_mock):
 
 
 def test_schedule(requests_mock):
-    requests_mock.register_uri(
-        "get",
-        URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"),
-        text='[{"input": "doorbell", "param": "1", "output": [{"event": "notify", "param": "", "schedule": {"weekdays": [{"to": "107999", "from": "108000"}]}}, {"event": "http", "param": "0", "schedule": {"weekdays": [{"to": "107999", "from": "108000"}]}}]}, {"input": "motion", "param": "", "output": [{"event": "notify", "param": "", "schedule": {"weekdays": [{"to": "107999", "from": "108000"}]}}, {"event": "http", "param": "5", "schedule": {"weekdays": [{"to": "107999", "from": "108000"}]}}]}, {"input": "relay", "param": "1", "output": []}]',
-    )
+    with open("schedule.json") as f:
+        requests_mock.register_uri(
+            "get",
+            URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"),
+            text=f.read(),
+        )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
     assert len(db.schedule()) == 3
 
 
 def test_get_schedule_entry(requests_mock):
-    requests_mock.register_uri(
-        "get",
-        URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"),
-        text='[{"input": "doorbell", "param": "1", "output": [{"event": "notify", "param": "", "schedule": {"weekdays": [{"to": "107999", "from": "108000"}]}}, {"event": "http", "param": "0", "schedule": {"weekdays": [{"to": "107999", "from": "108000"}]}}]}, {"input": "motion", "param": "", "output": [{"event": "notify", "param": "", "schedule": {"weekdays": [{"to": "107999", "from": "108000"}]}}, {"event": "http", "param": "5", "schedule": {"weekdays": [{"to": "107999", "from": "108000"}]}}]}, {"input": "relay", "param": "1", "output": []}]',
-    )
+    with open("schedule_get_entry.json") as f:
+        requests_mock.register_uri(
+            "get",
+            URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"),
+            text=f.read(),
+        )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
     assert isinstance(db.get_schedule_entry("doorbell", "1"), DoorBirdScheduleEntry)
@@ -149,11 +152,12 @@ def test_motion_sensor_state_true(requests_mock):
 
 
 def test_info(requests_mock):
-    requests_mock.register_uri(
-        "get",
-        URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/info.cgi"),
-        text='{"BHA": {"RETURNCODE": "1", "VERSION": [{"FIRMWARE": "000125", "BUILD_NUMBER": "15870439", "WIFI_MAC_ADDR": "1234ABCD", "RELAYS": ["1", "2", "ghchdi@1", "ghchdi@2", "ghchdi@3", "ghdwkh@1", "ghdwkh@2", "ghdwkh@3"], "DEVICE-TYPE": "DoorBird D2101V"}]}}',
-    )
+    with open("info.json") as f:
+        requests_mock.register_uri(
+            "get",
+            URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/info.cgi"),
+            text=f.read(),
+        )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
     data = db.info()

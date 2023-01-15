@@ -180,10 +180,11 @@ class DoorBird(object):
 
             match = re.match(r'(doorbell|motionsensor):(H|L)', line)
             if match:
-                if states[match.group(1)] != match.group(2):
-                    states[match.group(1)] = match.group(2)
-                    if (match.group(2) == 'H'):
-                        callback(match.group(1))
+                event, value = match.group(1), match.group(2)
+                if states[event] != value:
+                    states[event] = value
+                    if (value == 'H'):
+                        callback(event)
 
     def start_monitoring(self, callback):
         if self._monitor_thread:

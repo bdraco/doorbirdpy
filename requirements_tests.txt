@@ -1,2 +1,3 @@
+black
 requests-mock
 pytest

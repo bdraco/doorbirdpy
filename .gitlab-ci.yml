@@ -1,16 +1,23 @@
 # Verify that dependencies resolve
 install:
   stage: test
-  image: python
+  image: python3
   script:
     - pip3 install -r requirements.txt
     - pip3 install -r requirements_tests.txt
     - python3 -m pytest tests/test_init.py
 
+code-style:
+  stage: test
+  image: python3
+  script:
+    - pip3 install -r requirements_tests.txt
+    - python3 -m black --check doorbirdpy tests *.py
+
 # PyPI template
 .pypi:
   stage: deploy
-  image: python
+  image: python3
   before_script:
     # Install build and distribution tools
     - python3 -m pip install --user --upgrade setuptools wheel

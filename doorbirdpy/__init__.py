@@ -83,9 +83,7 @@ class DoorBird(object):
 
         :return: True if OK, False if not
         """
-        data = self._get_json(
-            self._url("/bha-api/open-door.cgi", {"r": relay}, auth=True)
-        )
+        data = self._get_json(self._url("/bha-api/open-door.cgi", {"r": relay}, auth=True))
         return int(data["BHA"]["RETURNCODE"]) == 1
 
     def turn_light_on(self):
@@ -164,26 +162,23 @@ class DoorBird(object):
 
     def _monitor_doorbird(self, callback):
         url = self._url("/bha-api/monitor.cgi", {"ring": "doorbell,motionsensor"}, auth=True)
-        states = {
-            "doorbell": "L",
-            "motionsensor": "L"
-        }
+        states = {"doorbell": "L", "motionsensor": "L"}
 
         response = requests.get(url, stream=True, timeout=60)
         if response.encoding is None:
-            response.encoding = 'utf-8'
+            response.encoding = "utf-8"
 
         for line in response.iter_lines(decode_unicode=True):
             if self._monitor_thread_should_exit:
                 response.close()
                 return
 
-            match = re.match(r'(doorbell|motionsensor):(H|L)', line)
+            match = re.match(r"(doorbell|motionsensor):(H|L)", line)
             if match:
                 event, value = match.group(1), match.group(2)
                 if states[event] != value:
                     states[event] = value
-                    if (value == 'H'):
+                    if value == "H":
                         callback(event)
 
     def start_monitoring(self, callback):

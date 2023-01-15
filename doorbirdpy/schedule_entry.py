@@ -8,6 +8,7 @@ class DoorBirdScheduleEntry(object):
     :param data: The entry as a dict
     :return: A DoorBirdScheduleEntry object
     """
+
     @staticmethod
     def parse(data):
         entry = DoorBirdScheduleEntry(data["input"], data["param"])
@@ -23,6 +24,7 @@ class DoorBirdScheduleEntry(object):
     :param data: The list of entries
     :return: A list of DoorBirdScheduleEntry objects
     """
+
     @staticmethod
     def parse_all(data):
         entries = []
@@ -39,11 +41,7 @@ class DoorBirdScheduleEntry(object):
 
     @property
     def export(self) -> dict:
-        entry = {
-            "input": self.input,
-            "param": self.param,
-            "output": []
-        }
+        entry = {"input": self.input, "param": self.param, "output": []}
 
         for output in self.output:
             entry["output"].append(output.export)
@@ -61,13 +59,15 @@ class DoorBirdScheduleEntryOutput(object):
     :param data: The output action as a dict
     :return: A DoorBirdScheduleEntryOutput object
     """
+
     @staticmethod
     def parse(data):
         return DoorBirdScheduleEntryOutput(
             enabled=bool(data["enabled"]) if "enabled" in data else False,
             event=data["event"],
             param=data["param"],
-            schedule=DoorBirdScheduleEntrySchedule.parse(data["schedule"]))
+            schedule=DoorBirdScheduleEntrySchedule.parse(data["schedule"]),
+        )
 
     def __init__(self, enabled=True, event=None, param="", schedule=None) -> None:
         self.enabled = enabled
@@ -81,7 +81,7 @@ class DoorBirdScheduleEntryOutput(object):
             "enabled": "1" if self.enabled else "0",
             "event": self.event,
             "param": self.param,
-            "schedule": self.schedule.export
+            "schedule": self.schedule.export,
         }
 
     def __str__(self) -> str:
@@ -95,6 +95,7 @@ class DoorBirdScheduleEntrySchedule(object):
     :param data: The schedule as a dict
     :return: A DoorBirdScheduleEntrySchedule object
     """
+
     @staticmethod
     def parse(data):
         schedule = DoorBirdScheduleEntrySchedule()
@@ -122,10 +123,9 @@ class DoorBirdScheduleEntrySchedule(object):
     
     :param enabled: True to enable it for one run, False to disable it until enabled again
     """
+
     def set_once(self, enabled) -> None:
-        self.once = {
-            "valid": 1 if enabled else 0
-        }
+        self.once = {"valid": 1 if enabled else 0}
 
     """
     Run the schedule only between the two specified times.
@@ -133,14 +133,12 @@ class DoorBirdScheduleEntrySchedule(object):
     :param sec_from: A unix timestamp representing the absolute start time of the schedule (such as April 25 2018)
     :param sec_to: A unix timestamp representing the absolute end time of the schedule (such as May 25 2018)
     """
+
     def add_range(self, sec_from, sec_to) -> None:
         if not self.from_to:
             self.from_to = []
 
-        self.from_to.append({
-            "from": str(int(sec_from)),
-            "to": str(int(sec_to))
-        })
+        self.from_to.append({"from": str(int(sec_from)), "to": str(int(sec_to))})
 
     """
     Run the schedule between certain times on weekdays.
@@ -148,14 +146,12 @@ class DoorBirdScheduleEntrySchedule(object):
     :param sec_from: Seconds between Sunday at 00:00 and the desired start time
     :param sec_to: Seconds between Sunday at 00:00 and the desired end time
     """
+
     def add_weekday(self, sec_from, sec_to) -> None:
         if not self.weekdays:
             self.weekdays = []
 
-        self.weekdays.append({
-            "from": str(int(sec_from)),
-            "to": str(int(sec_to))
-        })
+        self.weekdays.append({"from": str(int(sec_from)), "to": str(int(sec_to))})
 
     @property
     def export(self) -> dict:

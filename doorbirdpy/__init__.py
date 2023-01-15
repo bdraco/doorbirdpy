@@ -2,11 +2,9 @@
 import threading
 import requests
 import json
-import sys
 import re
 from urllib.parse import urlencode
-from requests import Session, request
-from requests.exceptions import HTTPError
+from requests import Session
 
 from doorbirdpy.schedule_entry import (
     DoorBirdScheduleEntry,

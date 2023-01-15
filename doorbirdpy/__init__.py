@@ -16,6 +16,8 @@ from doorbirdpy.schedule_entry import (
 class DoorBird(object):
     """Represent a doorbell unit."""
 
+    _monitor_timeout = 45  # seconds to wait for a monitor update
+
     def __init__(self, ip, username, password, http_session: Session = None, secure=False, port=None):
         """
         Initializes the options for subsequent connections to the unit.
@@ -162,11 +164,11 @@ class DoorBird(object):
         url = self._url("/bha-api/monitor.cgi", {"ring": "doorbell,motionsensor"}, auth=True)
         states = {"doorbell": "L", "motionsensor": "L"}
 
-        response = requests.get(url, stream=True, timeout=60)
+        response = requests.get(url, stream=True, timeout=self._monitor_timeout)
         if response.encoding is None:
             response.encoding = "utf-8"
 
-        for line in response.iter_lines(decode_unicode=True):
+        for line in response.iter_lines(decode_unicode=True):  # read until connection is closed
             if self._monitor_thread_should_exit:
                 response.close()
                 return
@@ -192,7 +194,7 @@ class DoorBird(object):
             return
 
         self._monitor_thread_should_exit = True
-        self._monitor_thread.join(61)
+        self._monitor_thread.join(self._monitor_timeout + 1)
         self._monitor_thread = None
 
     def doorbell_state(self):

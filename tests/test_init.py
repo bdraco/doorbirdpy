@@ -8,7 +8,7 @@ URL_TEMPLATE = "http://{}:{}@{}:80{}"
 
 
 def test_ready(requests_mock):
-    with open("info.json") as f:
+    with open("tests/info.json") as f:
         requests_mock.register_uri(
             "get",
             URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/info.cgi"),
@@ -84,7 +84,7 @@ def test_turn_light_on(requests_mock):
 
 
 def test_schedule(requests_mock):
-    with open("schedule.json") as f:
+    with open("tests/schedule.json") as f:
         requests_mock.register_uri(
             "get",
             URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"),
@@ -96,7 +96,7 @@ def test_schedule(requests_mock):
 
 
 def test_get_schedule_entry(requests_mock):
-    with open("schedule_get_entry.json") as f:
+    with open("tests/schedule_get_entry.json") as f:
         requests_mock.register_uri(
             "get",
             URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"),
@@ -152,7 +152,7 @@ def test_motion_sensor_state_true(requests_mock):
 
 
 def test_info(requests_mock):
-    with open("info.json") as f:
+    with open("tests/info.json") as f:
         requests_mock.register_uri(
             "get",
             URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/info.cgi"),

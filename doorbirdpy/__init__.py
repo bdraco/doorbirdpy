@@ -1,7 +1,9 @@
 """Main DoorBirdPy module."""
+import threading
 import requests
 import json
 import sys
+import re
 from urllib.parse import urlencode
 from requests import Session, request
 from requests.exceptions import HTTPError
@@ -35,6 +37,9 @@ class DoorBird(object):
             self._port = port
         else:
             self._port = 443 if self._secure else 80
+
+        self._monitor_thread = None
+        self._monitor_thread_should_exit = False
 
     def ready(self):
         """
@@ -156,6 +161,45 @@ class DoorBird(object):
         )
         response = self._http.get(url)
         return int(response.status_code) == 200
+
+    def _monitor_doorbird(self, callback):
+        url = self._url("/bha-api/monitor.cgi", {"ring": "doorbell,motionsensor"}, auth=True)
+        states = {
+            "doorbell": "L",
+            "motionsensor": "L"
+        }
+
+        response = requests.get(url, stream=True, timeout=60)
+        if response.encoding is None:
+            response.encoding = 'utf-8'
+
+        for line in response.iter_lines(decode_unicode=True):
+            if self._monitor_thread_should_exit:
+                response.close()
+                return
+
+            match = re.match(r'(doorbell|motionsensor):(H|L)', line)
+            if match:
+                if states[match.group(1)] != match.group(2):
+                    states[match.group(1)] = match.group(2)
+                    if (match.group(2) == 'H'):
+                        callback(match.group(1))
+
+    def start_monitoring(self, callback):
+        if self._monitor_thread:
+            self.stop_monitoring()
+
+        self._monitor_thread = threading.Thread(target=self._monitor_doorbird, args=(callback,))
+        self._monitor_thread_should_exit = False
+        self._monitor_thread.start()
+
+    def stop_monitoring(self):
+        if not self._monitor_thread:
+            return
+
+        self._monitor_thread_should_exit = True
+        self._monitor_thread.join(61)
+        self._monitor_thread = None
 
     def doorbell_state(self):
         """

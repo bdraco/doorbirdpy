@@ -3,6 +3,7 @@ import threading
 import requests
 import json
 import re
+import time
 from urllib.parse import urlencode
 from requests import Session
 
@@ -17,6 +18,7 @@ class DoorBird(object):
     """Represent a doorbell unit."""
 
     _monitor_timeout = 45  # seconds to wait for a monitor update
+    _monitor_max_failures = 4
 
     def __init__(self, ip, username, password, http_session: Session = None, secure=False, port=None):
         """
@@ -160,36 +162,64 @@ class DoorBird(object):
         response = self._http.get(url)
         return int(response.status_code) == 200
 
-    def _monitor_doorbird(self, callback):
+    def _monitor_doorbird(self, on_event, on_error):
+        """
+        Method to use by the monitoring thread
+        """
         url = self._url("/bha-api/monitor.cgi", {"ring": "doorbell,motionsensor"}, auth=True)
         states = {"doorbell": "L", "motionsensor": "L"}
+        failures = 0
 
-        response = requests.get(url, stream=True, timeout=self._monitor_timeout)
-        if response.encoding is None:
-            response.encoding = "utf-8"
-
-        for line in response.iter_lines(decode_unicode=True):  # read until connection is closed
+        while True:
             if self._monitor_thread_should_exit:
-                response.close()
                 return
 
-            match = re.match(r"(doorbell|motionsensor):(H|L)", line)
-            if match:
-                event, value = match.group(1), match.group(2)
-                if states[event] != value:
-                    states[event] = value
-                    if value == "H":
-                        callback(event)
+            try:
+                response = requests.get(url, stream=True, timeout=self._monitor_timeout)
+                failures = 0 # reset the failure count on each successful response
 
-    def start_monitoring(self, callback):
+                if response.encoding is None:
+                    response.encoding = "utf-8"
+
+                for line in response.iter_lines(decode_unicode=True):  # read until connection is closed
+                    if self._monitor_thread_should_exit:
+                        response.close()
+                        return
+
+                    match = re.match(r"(doorbell|motionsensor):(H|L)", line)
+                    if match:
+                        event, value = match.group(1), match.group(2)
+                        if states[event] != value:
+                            states[event] = value
+                            if value == "H":
+                                on_event(event)
+
+            except Exception as e:
+                if failures >= self._monitor_max_failures:
+                    return on_error(e)
+
+                failures += 1
+                time.sleep(2 ** failures)
+
+    def start_monitoring(self, on_event, on_error):
+        """
+        Start monitoring for doorbird events
+
+        :param on_event: A callback function, which takes the event name as its only parameter.
+        The possible events are "doorbell" and "motionsensor"
+        :param on_error: An error function, which will be called with an error if the thread fails.
+        """
         if self._monitor_thread:
             self.stop_monitoring()
 
-        self._monitor_thread = threading.Thread(target=self._monitor_doorbird, args=(callback,))
+        self._monitor_thread = threading.Thread(target=self._monitor_doorbird, args=(on_event, on_error))
         self._monitor_thread_should_exit = False
         self._monitor_thread.start()
 
     def stop_monitoring(self):
+        """
+        Stop monitoring for doorbird events
+        """
         if not self._monitor_thread:
             return
 

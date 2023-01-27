@@ -205,7 +205,9 @@ class DoorBird(object):
         """
         Start monitoring for doorbird events
 
-        :param callback: A callback function, which takes the event name as its only parameter
+        :param on_event: A callback function, which takes the event name as its only parameter.
+        The possible events are "doorbell" and "motionsensor"
+        :param on_error: An error function, which will be called with an error if the thread fails.
         """
         if self._monitor_thread:
             self.stop_monitoring()

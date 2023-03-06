@@ -176,7 +176,7 @@ class DoorBird(object):
 
             try:
                 response = requests.get(url, stream=True, timeout=self._monitor_timeout)
-                failures = 0 # reset the failure count on each successful response
+                failures = 0  # reset the failure count on each successful response
 
                 if response.encoding is None:
                     response.encoding = "utf-8"
@@ -199,7 +199,7 @@ class DoorBird(object):
                     return on_error(e)
 
                 failures += 1
-                time.sleep(2 ** failures)
+                time.sleep(2**failures)
 
     def start_monitoring(self, on_event, on_error):
         """

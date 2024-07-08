@@ -3,7 +3,7 @@ import json
 from typing import Any
 
 
-class DoorBirdScheduleEntry(object):
+class DoorBirdScheduleEntry:
     """
     Parse a schedule entry from the device into an object.
 
@@ -53,7 +53,7 @@ class DoorBirdScheduleEntry(object):
         return json.dumps(self.export)
 
 
-class DoorBirdScheduleEntryOutput(object):
+class DoorBirdScheduleEntryOutput:
     """
     Parse a schedule action from the device into an object.
 
@@ -97,7 +97,7 @@ class DoorBirdScheduleEntryOutput(object):
         return json.dumps(self.export)
 
 
-class DoorBirdScheduleEntrySchedule(object):
+class DoorBirdScheduleEntrySchedule:
     """
     Parse schedule times from the device into an object.
 

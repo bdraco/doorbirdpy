@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 
-class DoorBird(object):
+class DoorBird:
     """Represent a doorbell unit."""
 
     _monitor_timeout = 45  # seconds to wait for a monitor update
@@ -431,7 +431,7 @@ class DoorBird(object):
             url = template.format(protocol, self._ip, port, path)
 
         if query:
-            url = "{}?{}".format(url, query)
+            url = f"{url}?{query}"
 
         return url
 

@@ -11,6 +11,7 @@ setup(
     url="https://gitlab.com/klikini/doorbirdpy",
     download_url="https://gitlab.com/klikini/doorbirdpy/-/archive/master/doorbirdpy-master.zip",
     license="MIT",
+    python_requires=">=3.9",
     description="Python wrapper for the DoorBird LAN API v0.21",
     platforms="Cross Platform",
 )

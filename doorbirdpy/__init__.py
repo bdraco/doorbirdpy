@@ -1,17 +1,27 @@
 """Main DoorBirdPy module."""
-import threading
-import requests
+from __future__ import annotations
+import aiohttp
 import json
 import re
-import time
+import asyncio
+from typing import Any
+from contextlib import suppress
+from typing import Callable
 from urllib.parse import urlencode
-from requests import Session
+from aiohttp.client import ClientSession
 
 from doorbirdpy.schedule_entry import (
     DoorBirdScheduleEntry,
     DoorBirdScheduleEntryOutput,
     DoorBirdScheduleEntrySchedule,
 )
+
+__all__ = [
+    "DoorBird",
+    "DoorBirdScheduleEntry",
+    "DoorBirdScheduleEntryOutput",
+    "DoorBirdScheduleEntrySchedule",
+]
 
 
 class DoorBird(object):
@@ -20,7 +30,16 @@ class DoorBird(object):
     _monitor_timeout = 45  # seconds to wait for a monitor update
     _monitor_max_failures = 4
 
-    def __init__(self, ip, username, password, http_session: Session = None, secure=False, port=None):
+    def __init__(
+        self,
+        ip: str,
+        username: str,
+        password: str,
+        http_session: ClientSession | None = None,
+        secure: bool = False,
+        port: int | None = None,
+        timeout: float = 10.0,
+    ) -> None:
         """
         Initializes the options for subsequent connections to the unit.
 
@@ -29,21 +48,31 @@ class DoorBird(object):
         :param password: The password for the provided username
         :param secure: set to True to use https instead of http for URLs
         :param port: override the HTTP port (defaults to 443 if secure = True, otherwise 80)
+        :param timeout: The timeout for the HTTP requests
         """
         self._ip = ip
         self._credentials = username, password
-        self._http = http_session or Session()
+        self._http = http_session or ClientSession()
         self._secure = secure
+        self._timeout = timeout
 
         if port:
             self._port = port
         else:
             self._port = 443 if self._secure else 80
 
-        self._monitor_thread = None
-        self._monitor_thread_should_exit = False
+        self._monitor_task: asyncio.Task[None] | None = None
 
-    def ready(self):
+    async def _get(self, url: str) -> aiohttp.ClientResponse:
+        """
+        Perform a GET request to the given URL on the device.
+
+        :param url: The full URL to the API call
+        :return: The response object
+        """
+        return await self._http.get(url, timeout=self._timeout)
+
+    async def ready(self) -> tuple[bool, int]:
         """
         Test the connection to the device.
 
@@ -52,15 +81,15 @@ class DoorBird(object):
         """
         url = self._url("/bha-api/info.cgi", auth=True)
         try:
-            response = self._http.get(url)
-            data = response.json()
+            response = await self._get(url)
+            data = await response.json()
             code = data["BHA"]["RETURNCODE"]
-            return int(code) == 1, int(response.status_code)
+            return int(code) == 1, int(response.status)
         except ValueError:
-            return False, int(response.status_code)
+            return False, int(response.status)
 
     @property
-    def live_video_url(self):
+    def live_video_url(self) -> str:
         """
         A multipart JPEG live video stream with the default resolution and
         compression as defined in the system configuration.
@@ -70,7 +99,7 @@ class DoorBird(object):
         return self._url("/bha-api/video.cgi")
 
     @property
-    def live_image_url(self):
+    def live_image_url(self) -> str:
         """
         A JPEG file with the default resolution and compression as
         defined in the system configuration.
@@ -79,26 +108,28 @@ class DoorBird(object):
         """
         return self._url("/bha-api/image.cgi")
 
-    def energize_relay(self, relay=1):
+    async def energize_relay(self, relay: int = 1) -> bool:
         """
         Energize a door opener/alarm output/etc relay of the device.
 
         :return: True if OK, False if not
         """
-        data = self._get_json(self._url("/bha-api/open-door.cgi", {"r": relay}, auth=True))
+        data = await self._get_json(
+            self._url("/bha-api/open-door.cgi", {"r": relay}, auth=True)
+        )
         return int(data["BHA"]["RETURNCODE"]) == 1
 
-    def turn_light_on(self):
+    async def turn_light_on(self) -> bool:
         """
         Turn on the IR lights.
 
         :return: JSON
         """
-        data = self._get_json(self._url("/bha-api/light-on.cgi", auth=True))
+        data = await self._get_json(self._url("/bha-api/light-on.cgi", auth=True))
         code = data["BHA"]["RETURNCODE"]
         return int(code) == 1
 
-    def history_image_url(self, index, event):
+    def history_image_url(self, index: int, event: str) -> str:
         """
         A past image stored in the cloud.
 
@@ -107,7 +138,7 @@ class DoorBird(object):
         """
         return self._url("/bha-api/history.cgi", {"index": index, "event": event})
 
-    def schedule(self):
+    async def schedule(self) -> list[DoorBirdScheduleEntry]:
         """
         Get schedule settings.
 
@@ -116,14 +147,16 @@ class DoorBird(object):
         data = self._get_json(self._url("/bha-api/schedule.cgi", auth=True))
         return DoorBirdScheduleEntry.parse_all(data)
 
-    def get_schedule_entry(self, sensor, param=""):
+    async def get_schedule_entry(
+        self, sensor: str, param: str = ""
+    ) -> DoorBirdScheduleEntry:
         """
         Find the schedule entry that matches the provided sensor and parameter
         or create a new one that does if none exists.
 
         :return: A DoorBirdScheduleEntry
         """
-        entries = self.schedule()
+        entries = await self.schedule()
 
         for entry in entries:
             if entry.input == sensor and entry.param == param:
@@ -131,7 +164,7 @@ class DoorBird(object):
 
         return DoorBirdScheduleEntry(sensor, param)
 
-    def change_schedule(self, entry):
+    async def change_schedule(self, entry: DoorBirdScheduleEntry) -> tuple[bool, int]:
         """
         Add or replace a schedule entry.
 
@@ -139,14 +172,15 @@ class DoorBird(object):
         :return: A tuple containing the success status (True/False) and the HTTP response code
         """
         url = self._url("/bha-api/schedule.cgi", auth=True)
-        response = self._http.post(
+        response = await self._http.post(
             url,
             body=json.dumps(entry.export),
+            timeout=self._timeout,
             headers={"Content-Type": "application/json"},
         )
-        return int(response.status_code) == 200, response.status_code
+        return int(response.status) == 200, response.status
 
-    def delete_schedule(self, event, param=""):
+    async def delete_schedule(self, event: str, param: str = "") -> bool:
         """
         Delete a schedule entry.
 
@@ -159,33 +193,29 @@ class DoorBird(object):
             {"action": "remove", "input": event, "param": param},
             auth=True,
         )
-        response = self._http.get(url)
-        return int(response.status_code) == 200
+        response = await self._get(url)
+        return int(response.status) == 200
 
-    def _monitor_doorbird(self, on_event, on_error):
+    async def _monitor_doorbird(
+        self, on_event: Callable[[str], None], on_error: Callable[[Exception], None]
+    ) -> None:
         """
         Method to use by the monitoring thread
         """
-        url = self._url("/bha-api/monitor.cgi", {"ring": "doorbell,motionsensor"}, auth=True)
+        url = self._url(
+            "/bha-api/monitor.cgi", {"ring": "doorbell,motionsensor"}, auth=True
+        )
         states = {"doorbell": "L", "motionsensor": "L"}
         failures = 0
 
         while True:
-            if self._monitor_thread_should_exit:
-                return
-
             try:
-                response = requests.get(url, stream=True, timeout=self._monitor_timeout)
+                response = await self._http.get(url, timeout=self._monitor_timeout)
                 failures = 0  # reset the failure count on each successful response
-
-                if response.encoding is None:
-                    response.encoding = "utf-8"
-
-                for line in response.iter_lines(decode_unicode=True):  # read until connection is closed
-                    if self._monitor_thread_should_exit:
-                        response.close()
-                        return
-
+                async for (
+                    raw_line
+                ) in response.content:  # read until connection is closed
+                    line = raw_line.decode("utf-8")
                     match = re.match(r"(doorbell|motionsensor):(H|L)", line)
                     if match:
                         event, value = match.group(1), match.group(2)
@@ -199,9 +229,11 @@ class DoorBird(object):
                     return on_error(e)
 
                 failures += 1
-                time.sleep(2**failures)
+                await asyncio.sleep(2**failures)
 
-    def start_monitoring(self, on_event, on_error):
+    async def start_monitoring(
+        self, on_event: Callable[[str], None], on_error: Callable[[Exception], None]
+    ) -> None:
         """
         Start monitoring for doorbird events
 
@@ -209,55 +241,55 @@ class DoorBird(object):
         The possible events are "doorbell" and "motionsensor"
         :param on_error: An error function, which will be called with an error if the thread fails.
         """
-        if self._monitor_thread:
-            self.stop_monitoring()
+        if self._monitor_task:
+            await self.stop_monitoring()
+        self._monitor_task = asyncio.create_task(
+            self._monitor_doorbird(on_event, on_error)
+        )
 
-        self._monitor_thread = threading.Thread(target=self._monitor_doorbird, args=(on_event, on_error))
-        self._monitor_thread_should_exit = False
-        self._monitor_thread.start()
-
-    def stop_monitoring(self):
+    async def stop_monitoring(self) -> None:
         """
         Stop monitoring for doorbird events
         """
-        if not self._monitor_thread:
+        if not self._monitor_task:
             return
 
-        self._monitor_thread_should_exit = True
-        self._monitor_thread.join(self._monitor_timeout + 1)
-        self._monitor_thread = None
+        self._monitor_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await self._monitor_task
+        self._monitor_task = None
 
-    def doorbell_state(self):
+    async def doorbell_state(self) -> bool:
         """
         The current state of the doorbell.
 
         :return: True for pressed, False for idle
         """
         url = self._url("/bha-api/monitor.cgi", {"check": "doorbell"}, auth=True)
-        response = self._http.get(url)
+        response = await self._get(url)
         response.raise_for_status()
 
         try:
-            return int(response.text.split("=")[1]) == 1
+            return int((await response.text()).split("=")[1]) == 1
         except IndexError:
             return False
 
-    def motion_sensor_state(self):
+    async def motion_sensor_state(self) -> bool:
         """
         The current state of the motion sensor.
 
         :return: True for motion, False for idle
         """
         url = self._url("/bha-api/monitor.cgi", {"check": "motionsensor"}, auth=True)
-        response = self._http.get(url)
+        response = await self._get(url)
         response.raise_for_status()
 
         try:
-            return int(response.text.split("=")[1]) == 1
+            return int((await response.text()).split("=")[1]) == 1
         except IndexError:
             return False
 
-    def info(self):
+    async def info(self) -> dict[str, Any]:
         """
         Get information about the device.
 
@@ -269,10 +301,11 @@ class DoorBird(object):
         - DEVICE-TYPE (if firmware version >= 000108)
         """
         url = self._url("/bha-api/info.cgi", auth=True)
-        data = self._get_json(url)
+        response = await self._get(url)
+        data = await response.json()
         return data["BHA"]["VERSION"][0]
 
-    def favorites(self):
+    async def favorites(self) -> dict[str, Any]:
         """
         Get all saved favorites.
 
@@ -281,9 +314,11 @@ class DoorBird(object):
         which each reference another dict that maps ID
         to a dict with title and value keys.
         """
-        return self._get_json(self._url("/bha-api/favorites.cgi", auth=True))
+        return await self._get_json(self._url("/bha-api/favorites.cgi", auth=True))
 
-    def change_favorite(self, fav_type, title, value, fav_id=None):
+    async def change_favorite(
+        self, fav_type: str, title: str, value: str, fav_id: str | None = None
+    ) -> bool:
         """
         Add a new saved favorite or change an existing one.
 
@@ -293,15 +328,21 @@ class DoorBird(object):
         :param fav_id: The ID of the favorite, only used when editing existing favorites
         :return: successful, True or False
         """
-        args = {"action": "save", "type": fav_type, "title": title, "value": value}
+        args: dict[str, Any] = {
+            "action": "save",
+            "type": fav_type,
+            "title": title,
+            "value": value,
+        }
 
         if fav_id:
             args["id"] = int(fav_id)
 
-        response = self._http.get(self._url("/bha-api/favorites.cgi", args, auth=True))
-        return int(response.status_code) == 200
+        url = self._url("/bha-api/favorites.cgi", args, auth=True)
+        response = await self._get(url)
+        return int(response.status) == 200
 
-    def delete_favorite(self, fav_type, fav_id):
+    async def delete_favorite(self, fav_type: str, fav_id: str) -> bool:
         """
         Delete a saved favorite.
 
@@ -315,21 +356,21 @@ class DoorBird(object):
             auth=True,
         )
 
-        response = self._http.get(url)
-        return int(response.status_code) == 200
+        response = await self._get(url)
+        return int(response.status) == 200
 
-    def restart(self):
+    async def restart(self) -> bool:
         """
         Restart the device.
 
         :return: successful, True or False
         """
         url = self._url("/bha-api/restart.cgi")
-        response = self._http.get(url)
-        return int(response.status_code) == 200
+        response = await self._get(url)
+        return int(response.status) == 200
 
     @property
-    def rtsp_live_video_url(self):
+    def rtsp_live_video_url(self) -> str:
         """
         Live video request over RTSP.
 
@@ -338,7 +379,7 @@ class DoorBird(object):
         return self._url("/mpeg/media.amp", port=554, protocol="rtsp")
 
     @property
-    def rtsp_over_http_live_video_url(self):
+    def rtsp_over_http_live_video_url(self) -> str:
         """
         Live video request using RTSP over HTTP.
 
@@ -347,7 +388,7 @@ class DoorBird(object):
         return self._url("/mpeg/media.amp", port=8557, protocol="rtsp")
 
     @property
-    def html5_viewer_url(self):
+    def html5_viewer_url(self) -> str:
         """
         The HTML5 viewer for interaction from other platforms.
 
@@ -355,7 +396,14 @@ class DoorBird(object):
         """
         return self._url("/bha-api/view.html")
 
-    def _url(self, path, args=None, port=None, auth=True, protocol=None):
+    def _url(
+        self,
+        path: str,
+        args: dict[str, Any] | None = None,
+        port: int | None = None,
+        auth: bool = True,
+        protocol: str | None = None,
+    ) -> str:
         """
         Create a URL for accessing the device.
 
@@ -387,13 +435,13 @@ class DoorBird(object):
 
         return url
 
-    def _get_json(self, url):
+    async def _get_json(self, url: str) -> dict:
         """
         Perform a GET request to the given URL on the device.
 
         :param url: The full URL to the API call
         :return: The JSON-decoded data sent by the device
         """
-        response = self._http.get(url)
+        response = await self._get(url)
         response.raise_for_status()
-        return response.json()
+        return await response.json()

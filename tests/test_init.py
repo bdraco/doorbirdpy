@@ -30,7 +30,10 @@ def test_http_url():
             ("arg2", "value2"),
         ],
     )
-    assert url == f"http://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:80/test?arg1=value1&arg2=value2"
+    assert (
+        url
+        == f"http://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:80/test?arg1=value1&arg2=value2"
+    )
 
 
 def test_http_url_custom_port():
@@ -53,12 +56,16 @@ def test_https_url_custom_port():
 
 def test_rtsp_url():
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert db.rtsp_live_video_url.startswith(f"rtsp://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:554")
+    assert db.rtsp_live_video_url.startswith(
+        f"rtsp://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:554"
+    )
 
 
 def test_rtsp_http_url():
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert db.rtsp_over_http_live_video_url.startswith(f"rtsp://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:8557")
+    assert db.rtsp_over_http_live_video_url.startswith(
+        f"rtsp://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:8557"
+    )
 
 
 def test_energize_relay(requests_mock):
@@ -87,7 +94,9 @@ def test_schedule(requests_mock):
     with open("tests/schedule.json") as f:
         requests_mock.register_uri(
             "get",
-            URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"),
+            URL_TEMPLATE.format(
+                MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"
+            ),
             text=f.read(),
         )
 
@@ -99,7 +108,9 @@ def test_get_schedule_entry(requests_mock):
     with open("tests/schedule_get_entry.json") as f:
         requests_mock.register_uri(
             "get",
-            URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"),
+            URL_TEMPLATE.format(
+                MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"
+            ),
             text=f.read(),
         )
 
@@ -180,7 +191,10 @@ def test_info(requests_mock):
 
 
 def test_reset(requests_mock):
-    requests_mock.register_uri("get", URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/restart.cgi"))
+    requests_mock.register_uri(
+        "get",
+        URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/restart.cgi"),
+    )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
     assert db.restart() is True

@@ -7,7 +7,7 @@ setup(
     author="Andy Castille",
     author_email="andy@robiotic.net",
     packages=["doorbirdpy"],
-    install_requires=["requests"],
+    install_requires=["aiohttp"],
     url="https://gitlab.com/klikini/doorbirdpy",
     download_url="https://gitlab.com/klikini/doorbirdpy/-/archive/master/doorbirdpy-master.zip",
     license="MIT",

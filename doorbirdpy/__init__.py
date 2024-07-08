@@ -63,6 +63,13 @@ class DoorBird:
 
         self._monitor_task: asyncio.Task[None] | None = None
 
+    async def close(self) -> None:
+        """
+        Close the connection to the device.
+        """
+        if self._http:
+            await self._http.close()
+
     async def _get(self, url: str) -> aiohttp.ClientResponse:
         """
         Perform a GET request to the given URL on the device.
@@ -144,7 +151,7 @@ class DoorBird:
 
         :return: A list of DoorBirdScheduleEntry objects
         """
-        data = self._get_json(self._url("/bha-api/schedule.cgi", auth=True))
+        data = await self._get_json(self._url("/bha-api/schedule.cgi", auth=True))
         return DoorBirdScheduleEntry.parse_all(data)
 
     async def get_schedule_entry(

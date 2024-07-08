@@ -1,5 +1,7 @@
 from doorbirdpy import DoorBird
 from doorbirdpy.schedule_entry import DoorBirdScheduleEntry
+from aioresponses import aioresponses
+import pytest
 
 MOCK_HOST = "127.0.0.1"
 MOCK_USER = "user"
@@ -7,18 +9,25 @@ MOCK_PASS = "pass"
 URL_TEMPLATE = "http://{}:{}@{}:80{}"
 
 
-def test_ready(requests_mock):
+@pytest.fixture
+def mock_aioresponse():
+    with aioresponses() as m:
+        yield m
+
+
+@pytest.mark.asyncio
+async def test_ready(mock_aioresponse: aioresponses) -> None:
     with open("tests/info.json") as f:
-        requests_mock.register_uri(
-            "get",
+        mock_aioresponse.get(
             URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/info.cgi"),
-            text=f.read(),
+            body=f.read(),
         )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    ready, code = db.ready()
+    ready, code = await db.ready()
     assert ready is True
     assert code == 200
+    await db.close()
 
 
 def test_http_url():
@@ -68,40 +77,45 @@ def test_rtsp_http_url():
     )
 
 
-def test_energize_relay(requests_mock):
-    requests_mock.register_uri(
-        "get",
-        URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/open-door.cgi"),
-        text='{"BHA": {"RETURNCODE": "1"}}',
+@pytest.mark.asyncio
+async def test_energize_relay(mock_aioresponse: aioresponses) -> None:
+    mock_aioresponse.get(
+        URL_TEMPLATE.format(
+            MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/open-door.cgi?r=1"
+        ),
+        body='{"BHA": {"RETURNCODE": "1"}}',
     )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert db.energize_relay() is True
+    assert await db.energize_relay() is True
+    await db.close()
 
 
-def test_turn_light_on(requests_mock):
-    requests_mock.register_uri(
-        "get",
+@pytest.mark.asyncio
+async def test_turn_light_on(mock_aioresponse: aioresponses) -> None:
+    mock_aioresponse.get(
         URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/light-on.cgi"),
-        text='{"BHA": {"RETURNCODE": "1"}}',
+        body='{"BHA": {"RETURNCODE": "1"}}',
     )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert db.turn_light_on() is True
+    assert await db.turn_light_on() is True
+    await db.close()
 
 
-def test_schedule(requests_mock):
+@pytest.mark.asyncio
+async def test_schedule(mock_aioresponse: aioresponses) -> None:
     with open("tests/schedule.json") as f:
-        requests_mock.register_uri(
-            "get",
+        mock_aioresponse.get(
             URL_TEMPLATE.format(
                 MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"
             ),
-            text=f.read(),
+            body=f.read(),
         )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert len(db.schedule()) == 3
+    assert len(await db.schedule()) == 3
+    await db.close()
 
 
 def test_get_schedule_entry(requests_mock):

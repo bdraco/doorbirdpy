@@ -115,7 +115,7 @@ class DoorBird:
         """
         return self._url("/bha-api/image.cgi")
 
-    async def energize_relay(self, relay: int = 1) -> bool:
+    async def energize_relay(self, relay: int | str = 1) -> bool:
         """
         Energize a door opener/alarm output/etc relay of the device.
 

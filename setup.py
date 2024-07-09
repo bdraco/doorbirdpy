@@ -6,6 +6,8 @@ setup(
     version="3.0.0",
     author="Andy Castille",
     author_email="andy@robiotic.net",
+    maintainer="J. Nick Koston",
+    maintainer_email="nick@koston.org",
     packages=["doorbirdpy"],
     install_requires=["aiohttp"],
     url="https://gitlab.com/klikini/doorbirdpy",

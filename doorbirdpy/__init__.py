@@ -312,7 +312,7 @@ class DoorBird:
         data = await response.json()
         return data["BHA"]["VERSION"][0]
 
-    async def favorites(self) -> dict[str, Any]:
+    async def favorites(self) -> dict[str, dict[str, Any]]:
         """
         Get all saved favorites.
 

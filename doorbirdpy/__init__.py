@@ -242,8 +242,7 @@ class DoorBird:
                         break
                     if not isinstance(part, aiohttp.BodyPartReader):
                         continue
-                    raw_line = await part.read()
-                    line = raw_line.decode("utf-8")
+                    line = await part.text(encoding="utf-8")
                     failures = 0  # reset the failure count on each successful response
                     if match := re.match(r"(doorbell|motionsensor):(H|L)", line):
                         event, value = match.group(1), match.group(2)

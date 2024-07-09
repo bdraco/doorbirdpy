@@ -1,4 +1,5 @@
 """Main DoorBirdPy module."""
+
 from __future__ import annotations
 import aiohttp
 import json
@@ -8,6 +9,7 @@ from typing import Any
 from contextlib import suppress
 from typing import Callable
 from urllib.parse import urlencode
+from functools import cached_property
 from aiohttp.client import ClientSession
 
 from doorbirdpy.schedule_entry import (
@@ -70,14 +72,30 @@ class DoorBird:
         if self._http:
             await self._http.close()
 
-    async def _get(self, url: str) -> aiohttp.ClientResponse:
+    async def get_image(self, url: str, timeout: float | None = None) -> bytes:
+        """
+        Perform a GET request to the given URL on the device
+        and return the raw image data.
+
+        :param url: The full URL to the API call
+        :param timeout: The timeout for the request
+        :return: The response object
+        """
+        response = await self._http.get(url, timeout=timeout or self._timeout)
+        response.raise_for_status()
+        return await response.read()
+
+    async def _get(
+        self, url: str, timeout: float | None = None
+    ) -> aiohttp.ClientResponse:
         """
         Perform a GET request to the given URL on the device.
 
         :param url: The full URL to the API call
+        :param timeout: The timeout for the request
         :return: The response object
         """
-        return await self._http.get(url, timeout=self._timeout)
+        return await self._http.get(url, timeout=timeout or self._timeout)
 
     async def ready(self) -> tuple[bool, int]:
         """
@@ -95,7 +113,7 @@ class DoorBird:
         except ValueError:
             return False, int(response.status)
 
-    @property
+    @cached_property
     def live_video_url(self) -> str:
         """
         A multipart JPEG live video stream with the default resolution and
@@ -105,7 +123,7 @@ class DoorBird:
         """
         return self._url("/bha-api/video.cgi")
 
-    @property
+    @cached_property
     def live_image_url(self) -> str:
         """
         A JPEG file with the default resolution and compression as
@@ -376,7 +394,7 @@ class DoorBird:
         response = await self._get(url)
         return int(response.status) == 200
 
-    @property
+    @cached_property
     def rtsp_live_video_url(self) -> str:
         """
         Live video request over RTSP.
@@ -385,7 +403,7 @@ class DoorBird:
         """
         return self._url("/mpeg/media.amp", port=554, protocol="rtsp")
 
-    @property
+    @cached_property
     def rtsp_over_http_live_video_url(self) -> str:
         """
         Live video request using RTSP over HTTP.
@@ -394,7 +412,7 @@ class DoorBird:
         """
         return self._url("/mpeg/media.amp", port=8557, protocol="rtsp")
 
-    @property
+    @cached_property
     def html5_viewer_url(self) -> str:
         """
         The HTML5 viewer for interaction from other platforms.

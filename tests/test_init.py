@@ -30,6 +30,20 @@ async def test_ready(mock_aioresponse: aioresponses) -> None:
     await db.close()
 
 
+@pytest.mark.asyncio
+async def test_get_image(mock_aioresponse: aioresponses) -> None:
+    db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
+    url = db.live_image_url
+    mock_aioresponse.get(
+        url,
+        body=b"jpeg",
+    )
+
+    image_bytes = await db.get_image(url)
+    assert image_bytes == b"jpeg"
+    await db.close()
+
+
 def test_http_url():
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
     url = db._url(

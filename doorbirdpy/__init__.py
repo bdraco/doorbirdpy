@@ -450,12 +450,10 @@ class DoorBird:
         query = urlencode(args) if args else ""
 
         if auth:
-            template = "{}://{}@{}:{}{}"
             user = ":".join(self._credentials)
-            url = template.format(protocol, user, self._ip, port, path)
+            url = f"{protocol}://{user}@{self._ip}:{port}{path}"
         else:
-            template = "{}://{}:{}{}"
-            url = template.format(protocol, self._ip, port, path)
+            url = f"{protocol}://{self._ip}:{port}{path}"
 
         if query:
             url = f"{url}?{query}"

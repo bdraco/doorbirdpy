@@ -240,6 +240,8 @@ class DoorBird:
                 while True:
                     if (part := await reader.next()) is None:
                         break
+                    if not isinstance(part, aiohttp.BodyPartReader):
+                        continue
                     raw_line = await part.read()
                     line = raw_line.decode("utf-8")
                     failures = 0  # reset the failure count on each successful response

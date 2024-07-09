@@ -236,13 +236,14 @@ class DoorBird:
         while True:
             try:
                 response = await self._http.get(url, timeout=self._monitor_timeout)
-                failures = 0  # reset the failure count on each successful response
-                async for (
-                    raw_line
-                ) in response.content:  # read until connection is closed
+                reader = aiohttp.MultipartReader.from_response(response)
+                while True:
+                    if (part := await reader.next()) is None:
+                        break
+                    raw_line = await part.read()
                     line = raw_line.decode("utf-8")
-                    match = re.match(r"(doorbell|motionsensor):(H|L)", line)
-                    if match:
+                    failures = 0  # reset the failure count on each successful response
+                    if match := re.match(r"(doorbell|motionsensor):(H|L)", line):
                         event, value = match.group(1), match.group(2)
                         if states[event] != value:
                             states[event] = value

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 import aiohttp
-import json
 import re
 import asyncio
 from typing import Any
@@ -199,7 +198,7 @@ class DoorBird:
         url = self._url("/bha-api/schedule.cgi", auth=True)
         response = await self._http.post(
             url,
-            body=json.dumps(entry.export),
+            json=entry.export,
             timeout=self._timeout,
             headers={"Content-Type": "application/json"},
         )

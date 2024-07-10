@@ -150,6 +150,38 @@ async def test_get_schedule_entry(mock_aioresponse: aioresponses) -> None:
 
 
 @pytest.mark.asyncio
+async def test_change_schedule_entry(mock_aioresponse: aioresponses) -> None:
+    with open("tests/schedule_get_entry.json") as f:
+        mock_aioresponse.get(
+            URL_TEMPLATE.format(
+                MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"
+            ),
+            body=f.read(),
+        )
+
+    db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
+    entry = await db.get_schedule_entry("doorbell", "1")
+    entry.param = "5"
+    mock_aioresponse.post(
+        URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"),
+    )
+    await db.change_schedule(entry)
+    mock_aioresponse.assert_called_with(
+        url=URL_TEMPLATE.format(
+            MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"
+        ),
+        method="POST",
+        **{
+            "json": entry.export,
+            "timeout": 10.0,
+            "headers": {"Content-Type": "application/json"},
+            "allow_redirects": True,
+        },
+    )
+    await db.close()
+
+
+@pytest.mark.asyncio
 async def test_doorbell_state_false(mock_aioresponse: aioresponses) -> None:
     mock_aioresponse.get(
         URL_TEMPLATE.format(

@@ -52,6 +52,9 @@ class DoorBirdScheduleEntry:
     def __str__(self) -> str:
         return json.dumps(self.export)
 
+    def __repr__(self) -> str:
+        return f"<DoorBirdScheduleEntry {self.export}>"
+
 
 class DoorBirdScheduleEntryOutput:
     """
@@ -95,6 +98,9 @@ class DoorBirdScheduleEntryOutput:
 
     def __str__(self) -> str:
         return json.dumps(self.export)
+
+    def __repr__(self) -> str:
+        return f"<DoorBirdScheduleEntryOutput {self.export}>"
 
 
 class DoorBirdScheduleEntrySchedule:
@@ -183,3 +189,6 @@ class DoorBirdScheduleEntrySchedule:
 
     def __str__(self) -> str:
         return json.dumps(self.export)
+
+    def __repr__(self) -> str:
+        return f"<DoorBirdScheduleEntrySchedule {self.export}>"

@@ -1,13 +1,10 @@
 # doorbirdpy
-Python wrapper for the DoorBird LAN API v0.21
+
+Python wrapper for [DoorBird LAN API v0.36](https://www.doorbird.com/downloads/api_lan.pdf)
 
 [View on PyPI](https://pypi.org/project/DoorBirdPy/)
 
 # Features
-
-[DoorBird API Documentation](https://www.doorbird.com/downloads/api_lan.pdf?rev=0.21)
-
-Note that no image data is handled by this wrapper; it only returns the URLs to access images and streams. It was designed this way so that the fetching of images could be handled by the client application and so that this library would not have so many dependencies.
 
 ## Supported
 
@@ -21,10 +18,10 @@ Note that no image data is handled by this wrapper; it only returns the URLs to 
 - Check request
 - Info request
 - RTSP
+- Monitor request
 
 ## Not yet supported
 
-- Monitor request
 - Live audio transmit
 - Live audio receive
 - SIP

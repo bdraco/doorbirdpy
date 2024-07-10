@@ -12,7 +12,7 @@ code-style:
   image: python:3
   script:
     - pip3 install -r requirements_tests.txt
-    - python3 -m black --check doorbirdpy tests *.py
+    - ruff check doorbirdpy tests
 
 # PyPI template
 .pypi:

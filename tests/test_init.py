@@ -1,5 +1,7 @@
 from doorbirdpy import DoorBird
 from doorbirdpy.schedule_entry import DoorBirdScheduleEntry
+from aioresponses import aioresponses
+import pytest
 
 MOCK_HOST = "127.0.0.1"
 MOCK_USER = "user"
@@ -7,18 +9,39 @@ MOCK_PASS = "pass"
 URL_TEMPLATE = "http://{}:{}@{}:80{}"
 
 
-def test_ready(requests_mock):
+@pytest.fixture
+def mock_aioresponse():
+    with aioresponses() as m:
+        yield m
+
+
+@pytest.mark.asyncio
+async def test_ready(mock_aioresponse: aioresponses) -> None:
     with open("tests/info.json") as f:
-        requests_mock.register_uri(
-            "get",
+        mock_aioresponse.get(
             URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/info.cgi"),
-            text=f.read(),
+            body=f.read(),
         )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    ready, code = db.ready()
+    ready, code = await db.ready()
     assert ready is True
     assert code == 200
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_get_image(mock_aioresponse: aioresponses) -> None:
+    db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
+    url = db.live_image_url
+    mock_aioresponse.get(
+        url,
+        body=b"jpeg",
+    )
+
+    image_bytes = await db.get_image(url)
+    assert image_bytes == b"jpeg"
+    await db.close()
 
 
 def test_http_url():
@@ -30,7 +53,10 @@ def test_http_url():
             ("arg2", "value2"),
         ],
     )
-    assert url == f"http://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:80/test?arg1=value1&arg2=value2"
+    assert (
+        url
+        == f"http://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:80/test?arg1=value1&arg2=value2"
+    )
 
 
 def test_http_url_custom_port():
@@ -53,114 +79,142 @@ def test_https_url_custom_port():
 
 def test_rtsp_url():
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert db.rtsp_live_video_url.startswith(f"rtsp://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:554")
+    assert db.rtsp_live_video_url.startswith(
+        f"rtsp://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:554"
+    )
 
 
 def test_rtsp_http_url():
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert db.rtsp_over_http_live_video_url.startswith(f"rtsp://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:8557")
+    assert db.rtsp_over_http_live_video_url.startswith(
+        f"rtsp://{MOCK_USER}:{MOCK_PASS}@{MOCK_HOST}:8557"
+    )
 
 
-def test_energize_relay(requests_mock):
-    requests_mock.register_uri(
-        "get",
-        URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/open-door.cgi"),
-        text='{"BHA": {"RETURNCODE": "1"}}',
+@pytest.mark.asyncio
+async def test_energize_relay(mock_aioresponse: aioresponses) -> None:
+    mock_aioresponse.get(
+        URL_TEMPLATE.format(
+            MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/open-door.cgi?r=1"
+        ),
+        body='{"BHA": {"RETURNCODE": "1"}}',
     )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert db.energize_relay() is True
+    assert await db.energize_relay() is True
+    await db.close()
 
 
-def test_turn_light_on(requests_mock):
-    requests_mock.register_uri(
-        "get",
+@pytest.mark.asyncio
+async def test_turn_light_on(mock_aioresponse: aioresponses) -> None:
+    mock_aioresponse.get(
         URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/light-on.cgi"),
-        text='{"BHA": {"RETURNCODE": "1"}}',
+        body='{"BHA": {"RETURNCODE": "1"}}',
     )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert db.turn_light_on() is True
+    assert await db.turn_light_on() is True
+    await db.close()
 
 
-def test_schedule(requests_mock):
+@pytest.mark.asyncio
+async def test_schedule(mock_aioresponse: aioresponses) -> None:
     with open("tests/schedule.json") as f:
-        requests_mock.register_uri(
-            "get",
-            URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"),
-            text=f.read(),
+        mock_aioresponse.get(
+            URL_TEMPLATE.format(
+                MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"
+            ),
+            body=f.read(),
         )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert len(db.schedule()) == 3
+    assert len(await db.schedule()) == 3
+    await db.close()
 
 
-def test_get_schedule_entry(requests_mock):
+@pytest.mark.asyncio
+async def test_get_schedule_entry(mock_aioresponse: aioresponses) -> None:
     with open("tests/schedule_get_entry.json") as f:
-        requests_mock.register_uri(
-            "get",
-            URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"),
-            text=f.read(),
+        mock_aioresponse.get(
+            URL_TEMPLATE.format(
+                MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/schedule.cgi"
+            ),
+            body=f.read(),
         )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert isinstance(db.get_schedule_entry("doorbell", "1"), DoorBirdScheduleEntry)
+    assert isinstance(
+        await db.get_schedule_entry("doorbell", "1"), DoorBirdScheduleEntry
+    )
+    await db.close()
 
 
-def test_doorbell_state_false(requests_mock):
-    requests_mock.register_uri(
-        "get",
-        URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/monitor.cgi"),
-        text="doorbell=0\r\n",
+@pytest.mark.asyncio
+async def test_doorbell_state_false(mock_aioresponse: aioresponses) -> None:
+    mock_aioresponse.get(
+        URL_TEMPLATE.format(
+            MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/monitor.cgi?check=doorbell"
+        ),
+        body="doorbell=0\r\n",
     )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert db.doorbell_state() is False
+    assert await db.doorbell_state() is False
+    await db.close()
 
 
-def test_doorbell_state_true(requests_mock):
-    requests_mock.register_uri(
-        "get",
-        URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/monitor.cgi"),
-        text="doorbell=1\r\n",
+@pytest.mark.asyncio
+async def test_doorbell_state_true(mock_aioresponse: aioresponses) -> None:
+    mock_aioresponse.get(
+        URL_TEMPLATE.format(
+            MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/monitor.cgi?check=doorbell"
+        ),
+        body="doorbell=1\r\n",
     )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert db.doorbell_state() is True
+    assert await db.doorbell_state() is True
+    await db.close()
 
 
-def test_motion_sensor_state_false(requests_mock):
-    requests_mock.register_uri(
-        "get",
-        URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/monitor.cgi"),
-        text="motionsensor=0\r\n",
+@pytest.mark.asyncio
+async def test_motion_sensor_state_false(mock_aioresponse: aioresponses) -> None:
+    mock_aioresponse.get(
+        URL_TEMPLATE.format(
+            MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/monitor.cgi?check=motionsensor"
+        ),
+        body="motionsensor=0\r\n",
     )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert db.motion_sensor_state() is False
+    assert await db.motion_sensor_state() is False
+    await db.close()
 
 
-def test_motion_sensor_state_true(requests_mock):
-    requests_mock.register_uri(
-        "get",
-        URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/monitor.cgi"),
-        text="motionsensor=1\r\n",
+@pytest.mark.asyncio
+async def test_motion_sensor_state_true(mock_aioresponse: aioresponses) -> None:
+    mock_aioresponse.get(
+        URL_TEMPLATE.format(
+            MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/monitor.cgi?check=motionsensor"
+        ),
+        body="motionsensor=1\r\n",
     )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert db.motion_sensor_state() is True
+    assert await db.motion_sensor_state() is True
+    await db.close()
 
 
-def test_info(requests_mock):
+@pytest.mark.asyncio
+async def test_info(mock_aioresponse: aioresponses) -> None:
     with open("tests/info.json") as f:
-        requests_mock.register_uri(
-            "get",
+        mock_aioresponse.get(
             URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/info.cgi"),
-            text=f.read(),
+            body=f.read(),
         )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    data = db.info()
+    data = await db.info()
     assert data == {
         "BUILD_NUMBER": "15870439",
         "DEVICE-TYPE": "DoorBird D2101V",
@@ -177,10 +231,15 @@ def test_info(requests_mock):
         ],
         "WIFI_MAC_ADDR": "1234ABCD",
     }
+    await db.close()
 
 
-def test_reset(requests_mock):
-    requests_mock.register_uri("get", URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/restart.cgi"))
+@pytest.mark.asyncio
+async def test_reset(mock_aioresponse: aioresponses) -> None:
+    mock_aioresponse.get(
+        URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/restart.cgi"),
+    )
 
     db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
-    assert db.restart() is True
+    assert await db.restart() is True
+    await db.close()

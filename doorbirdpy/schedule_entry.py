@@ -1,7 +1,9 @@
+from __future__ import annotations
 import json
+from typing import Any
 
 
-class DoorBirdScheduleEntry(object):
+class DoorBirdScheduleEntry:
     """
     Parse a schedule entry from the device into an object.
 
@@ -26,33 +28,32 @@ class DoorBirdScheduleEntry(object):
     """
 
     @staticmethod
-    def parse_all(data):
-        entries = []
+    def parse_all(data) -> list[DoorBirdScheduleEntry]:
+        entries: list[DoorBirdScheduleEntry] = []
 
         for entry_data in data:
             entries.append(DoorBirdScheduleEntry.parse(entry_data))
 
         return entries
 
-    def __init__(self, input, param="") -> None:
+    def __init__(self, input: str, param: str = "") -> None:
         self.input = input
         self.param = param
-        self.output = []
+        self.output: list[DoorBirdScheduleEntryOutput] = []
 
     @property
     def export(self) -> dict:
-        entry = {"input": self.input, "param": self.param, "output": []}
-
-        for output in self.output:
-            entry["output"].append(output.export)
-
-        return entry
+        return {
+            "input": self.input,
+            "param": self.param,
+            "output": [output.export for output in self.output],
+        }
 
     def __str__(self) -> str:
         return json.dumps(self.export)
 
 
-class DoorBirdScheduleEntryOutput(object):
+class DoorBirdScheduleEntryOutput:
     """
     Parse a schedule action from the device into an object.
 
@@ -61,7 +62,7 @@ class DoorBirdScheduleEntryOutput(object):
     """
 
     @staticmethod
-    def parse(data):
+    def parse(data) -> DoorBirdScheduleEntryOutput:
         return DoorBirdScheduleEntryOutput(
             enabled=bool(data["enabled"]) if "enabled" in data else False,
             event=data["event"],
@@ -69,11 +70,19 @@ class DoorBirdScheduleEntryOutput(object):
             schedule=DoorBirdScheduleEntrySchedule.parse(data["schedule"]),
         )
 
-    def __init__(self, enabled=True, event=None, param="", schedule=None) -> None:
+    def __init__(
+        self,
+        enabled: bool = True,
+        event: str | None = None,
+        param: str = "",
+        schedule: DoorBirdScheduleEntrySchedule | None = None,
+    ) -> None:
         self.enabled = enabled
         self.event = event
         self.param = param
-        self.schedule = DoorBirdScheduleEntrySchedule() if schedule is None else schedule
+        self.schedule = (
+            DoorBirdScheduleEntrySchedule() if schedule is None else schedule
+        )
 
     @property
     def export(self) -> dict:
@@ -88,7 +97,7 @@ class DoorBirdScheduleEntryOutput(object):
         return json.dumps(self.export)
 
 
-class DoorBirdScheduleEntrySchedule(object):
+class DoorBirdScheduleEntrySchedule:
     """
     Parse schedule times from the device into an object.
 
@@ -114,9 +123,9 @@ class DoorBirdScheduleEntrySchedule(object):
         return schedule
 
     def __init__(self) -> None:
-        self.once = None
-        self.from_to = None
-        self.weekdays = None
+        self.once: dict[str, int] | None = None
+        self.from_to: list[dict] | None = None
+        self.weekdays: list[dict] | None = None
 
     """
     Toggle the schedule on or off. The next time it runs, it will be toggled off.
@@ -124,7 +133,7 @@ class DoorBirdScheduleEntrySchedule(object):
     :param enabled: True to enable it for one run, False to disable it until enabled again
     """
 
-    def set_once(self, enabled) -> None:
+    def set_once(self, enabled: bool) -> None:
         self.once = {"valid": 1 if enabled else 0}
 
     """
@@ -134,7 +143,7 @@ class DoorBirdScheduleEntrySchedule(object):
     :param sec_to: A unix timestamp representing the absolute end time of the schedule (such as May 25 2018)
     """
 
-    def add_range(self, sec_from, sec_to) -> None:
+    def add_range(self, sec_from: str | int, sec_to: str | int) -> None:
         if not self.from_to:
             self.from_to = []
 
@@ -147,15 +156,15 @@ class DoorBirdScheduleEntrySchedule(object):
     :param sec_to: Seconds between Sunday at 00:00 and the desired end time
     """
 
-    def add_weekday(self, sec_from, sec_to) -> None:
+    def add_weekday(self, sec_from: str | int, sec_to: str | int) -> None:
         if not self.weekdays:
             self.weekdays = []
 
         self.weekdays.append({"from": str(int(sec_from)), "to": str(int(sec_to))})
 
     @property
-    def export(self) -> dict:
-        schedule = {}
+    def export(self) -> dict[str, Any]:
+        schedule: dict[str, Any] = {}
 
         if self.once:
             schedule["once"] = self.once

@@ -1,6 +1,7 @@
 from doorbirdpy import DoorBird
 from doorbirdpy.schedule_entry import DoorBirdScheduleEntry
 from aioresponses import aioresponses
+from aiohttp import ClientResponseError
 import pytest
 
 MOCK_HOST = "127.0.0.1"
@@ -263,6 +264,19 @@ async def test_info(mock_aioresponse: aioresponses) -> None:
         ],
         "WIFI_MAC_ADDR": "1234ABCD",
     }
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_info_auth_fails(mock_aioresponse: aioresponses) -> None:
+    mock_aioresponse.get(
+        URL_TEMPLATE.format(MOCK_USER, MOCK_PASS, MOCK_HOST, "/bha-api/info.cgi"),
+        status=401,
+    )
+
+    db = DoorBird(MOCK_HOST, MOCK_USER, MOCK_PASS)
+    with pytest.raises(ClientResponseError):
+        await db.info()
     await db.close()
 
 

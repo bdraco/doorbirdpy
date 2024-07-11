@@ -328,6 +328,7 @@ class DoorBird:
         """
         url = self._url("/bha-api/info.cgi", auth=True)
         response = await self._get(url)
+        response.raise_for_status()
         data = await response.json()
         return data["BHA"]["VERSION"][0]
 
